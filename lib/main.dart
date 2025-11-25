@@ -7,7 +7,6 @@ void main() {
 
 class SafestoreApp extends StatelessWidget {
   const SafestoreApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
