@@ -16,7 +16,7 @@ class _LogListScreenState extends State<LogListScreen> {
   List<AbnormalLog> _logs = [];
   bool _isLoading = true;
 
-  // [주의] Ngrok 주소가 바뀌면 여기를 꼭 수정하세요!
+  // [주의] Ngrok 주소 확인 필수!
   final String baseUrl = "https://becomingly-vowless-peggy.ngrok-free.dev";
 
   @override
@@ -36,17 +36,23 @@ class _LogListScreenState extends State<LogListScreen> {
         List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
 
         List<AbnormalLog> fetchedLogs = data.map((json) {
-          // 영상 URL 조합
           String fullVideoUrl = baseUrl + (json['videoUrl'] ?? '');
           return AbnormalLog(
-            // timestamp 예시: "2024-05-30 14:00:00 (00:15)"
             timestamp: "${json['upload_date']} (${json['timestamp']})",
             videoUrl: fullVideoUrl,
+            // [수정] 서버의 'type' 값을 가져옴 (없으면 기본값)
+            type: json['type'] ?? '알 수 없음',
           );
         }).toList();
 
+        // 필터링 로직 (오늘 날짜만 보기 기능이 있다면)
+        if (!widget.showAll) {
+          String today = DateTime.now().toString().substring(0, 10);
+          fetchedLogs = fetchedLogs.where((log) => log.timestamp.startsWith(today)).toList();
+        }
+
         setState(() {
-          _logs = fetchedLogs.reversed.toList(); // 최신순 정렬
+          _logs = fetchedLogs.reversed.toList();
           _isLoading = false;
         });
       } else {
@@ -105,6 +111,12 @@ class _LogListScreenState extends State<LogListScreen> {
         separatorBuilder: (context, index) => SizedBox(height: 12),
         itemBuilder: (context, index) {
           final log = _logs[index];
+
+          // [디자인 로직] 타입에 따라 색상과 아이콘 변경
+          bool isDanger = log.type.contains("위험");
+          Color statusColor = isDanger ? Colors.red : Colors.orange;
+          IconData statusIcon = isDanger ? Icons.error_outline : Icons.warning_amber_rounded;
+
           return Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -115,29 +127,30 @@ class _LogListScreenState extends State<LogListScreen> {
             child: ListTile(
               contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               leading: CircleAvatar(
-                backgroundColor: Colors.red[50],
-                child: Icon(Icons.warning_rounded, color: Colors.red),
+                backgroundColor: statusColor.withOpacity(0.1),
+                child: Icon(statusIcon, color: statusColor),
               ),
+              // [수정된 부분] 제목에 이상행동 타입 표시
               title: Text(
-                '이상행동 감지',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                '이상행동 감지 ⚠️ ${log.type}',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
-              subtitle: Text(
-                log.timestamp,
-                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Text(
+                  log.timestamp,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
               ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // [수정됨] 재생 버튼: 시간 추출 로직 추가
                   IconButton(
                     icon: Icon(Icons.play_circle_fill, color: Colors.blue, size: 32),
                     onPressed: () {
                       if (log.videoUrl.isNotEmpty) {
-
                         String? extractedTime;
                         try {
-                          // "(00:15)" 형태에서 시간만 추출
                           if (log.timestamp.contains('(')) {
                             extractedTime = log.timestamp.split('(')[1].replaceAll(')', '').trim();
                           }
@@ -150,14 +163,13 @@ class _LogListScreenState extends State<LogListScreen> {
                           MaterialPageRoute(
                             builder: (context) => VideoPlayerScreen(
                               videoUrl: log.videoUrl,
-                              startTime: extractedTime, // 추출한 시간 전달
+                              startTime: extractedTime,
                             ),
                           ),
                         );
                       }
                     },
                   ),
-                  // 삭제 버튼
                   IconButton(
                     icon: Icon(Icons.delete, color: Colors.grey),
                     onPressed: () {

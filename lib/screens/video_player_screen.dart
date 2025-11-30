@@ -4,7 +4,7 @@ import 'package:chewie/chewie.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
-  final String? startTime; // [추가] 시작 시간 (예: "00:15")
+  final String? startTime;
 
   const VideoPlayerScreen({
     Key? key,

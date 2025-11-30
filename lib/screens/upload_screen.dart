@@ -1,10 +1,11 @@
 import 'dart:io';
-import 'dart:convert'; // JSON 파싱을 위해 필요
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
-import '../models/abnormal_log.dart'; // 모델 import
+import '../models/abnormal_log.dart';
+import 'log_list_screen.dart';
 
 class UploadScreen extends StatefulWidget {
   @override
@@ -44,41 +45,34 @@ class _UploadScreenState extends State<UploadScreen> {
     }
   }
 
-  // [수정] 서버로 보내고 결과를 받아서 화면 이동
   Future<void> _uploadAndAnalyze() async {
     if (_selectedVideo == null) return;
 
     setState(() { _isUploading = true; });
 
     try {
-      // ngrok 주소 확인 필수
-      // [수정된 코드]
+      // [주의] Ngrok 주소가 바뀌면 여기를 꼭 수정하세요!
       var uri = Uri.parse('https://becomingly-vowless-peggy.ngrok-free.dev/upload');
+
       var request = http.MultipartRequest('POST', uri);
       request.files.add(await http.MultipartFile.fromPath('file', _selectedVideo!.path));
 
-      // 서버 응답 대기 (분석 시간에 따라 오래 걸릴 수 있음)
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
-        // JSON 파싱
         var jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
-        List<dynamic> logsJson = jsonResponse['data']; // 서버가 보낸 리스트
+        List<dynamic> logsJson = jsonResponse['data'];
 
-        // 모델로 변환
+        // [수정된 부분] AbnormalLog 생성 시 type 필드 추가
         List<AbnormalLog> analysisResults = logsJson.map((json) => AbnormalLog(
           timestamp: json['timestamp'] ?? '',
-          videoUrl: json['videoUrl'] ?? '', // 현재는 빈 문자열일 수 있음
-          // type: json['type'] ?? '', // 모델에 type 필드가 있다면 추가
+          videoUrl: json['videoUrl'] ?? '',
+          type: json['type'] ?? '알 수 없음', // <-- 여기를 추가해서 에러 해결!
         )).toList();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('분석 완료!')));
-
-          // 결과를 보여주는 화면으로 이동 (여기서는 LogListScreen을 재활용하거나 새로 만듦)
-          // *주의: LogListScreen이 데이터를 받을 수 있게 수정해야 함.
-          // 간단하게 결과를 팝업으로 띄우거나, LogListScreen에 전달.
 
           showDialog(
             context: context,
@@ -93,12 +87,15 @@ class _UploadScreenState extends State<UploadScreen> {
                   itemCount: analysisResults.length,
                   itemBuilder: (context, index) {
                     var log = analysisResults[index];
-                    // AbnormalLog 모델에 'type' 필드가 없으면 timestamp만 표시됨
-                    // 필요하면 모델에 type 필드 추가 권장
+                    // 아이콘 및 색상 설정
+                    bool isDanger = log.type.contains("위험");
+                    Color iconColor = isDanger ? Colors.red : Colors.orange;
+
                     return ListTile(
-                      leading: Icon(Icons.warning, color: Colors.red),
+                      leading: Icon(Icons.warning, color: iconColor),
                       title: Text("이상행동 감지"),
-                      subtitle: Text("시간: ${log.timestamp}"),
+                      subtitle: Text("${log.type}\n시간: ${log.timestamp}"),
+                      isThreeLine: true,
                     );
                   },
                 ),
@@ -180,7 +177,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   children: [
                     SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
                     SizedBox(width: 15),
-                    Text('영상 분석 중...'), // 텍스트 변경
+                    Text('영상 분석 중...'),
                   ],
                 )
                     : Text('업로드 및 분석 시작', style: TextStyle(fontSize: 16)),

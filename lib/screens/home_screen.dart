@@ -1,9 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // 날짜 형식을 위해 필요
-// import 'package:http/http.dart' as http; // 실제 서버 연동 시 필요
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'upload_screen.dart';
 import 'log_list_screen.dart';
-import '../models/abnormal_log.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -13,11 +13,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  // 탭별 화면 정의: 0번 인덱스에 대시보드(메인) 추가
   final List<Widget> _pages = [
-    DashboardScreen(), // 메인 대시보드
-    UploadScreen(),    // 영상 업로드
-    LogListScreen(showAll: true),   // 결과 리스트 (기본적으로 전체 보기)
+    DashboardScreen(),
+    UploadScreen(),
+    LogListScreen(showAll: true),
   ];
 
   void _onItemTapped(int index) {
@@ -36,25 +35,15 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: '홈',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.cloud_upload),
-            label: '영상 분석',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list_alt),
-            label: '기록 확인',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: '홈'),
+          BottomNavigationBarItem(icon: Icon(Icons.cloud_upload), label: '영상 분석'),
+          BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: '기록 확인'),
         ],
       ),
     );
   }
 }
 
-// 메인 페이지 (대시보드)
 class DashboardScreen extends StatefulWidget {
   @override
   _DashboardScreenState createState() => _DashboardScreenState();
@@ -63,6 +52,10 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _todayCount = 0;
   bool _isLoading = true;
+  bool _isServerOnline = false; // 서버 연결 상태 변수 추가
+
+  // [주의] 실행 중인 Ngrok 주소 확인!
+  final String baseUrl = "https://becomingly-vowless-peggy.ngrok-free.dev";
 
   @override
   void initState() {
@@ -70,29 +63,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _fetchTodayAbnormalCount();
   }
 
-  // 오늘 발생한 이상행동 횟수 가져오기 (더미 데이터)
   Future<void> _fetchTodayAbnormalCount() async {
+    setState(() { _isLoading = true; });
     try {
-      await Future.delayed(Duration(seconds: 1));
+      var uri = Uri.parse('$baseUrl/logs');
+      // 3초 안에 응답 없으면 오프라인으로 간주
+      var response = await http.get(uri).timeout(Duration(seconds: 3));
 
-      List<AbnormalLog> dummyLogs = [
-        AbnormalLog(timestamp: DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()), videoUrl: ''),
-        AbnormalLog(timestamp: DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now().subtract(Duration(hours: 2))), videoUrl: ''),
-        AbnormalLog(timestamp: '2023-01-01 10:00:00', videoUrl: ''),
-      ];
+      if (response.statusCode == 200) {
+        List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+        String todayString = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-      String todayString = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      int count = dummyLogs.where((log) {
-        return log.timestamp.startsWith(todayString);
-      }).length;
+        int count = data.where((item) {
+          String uploadDate = item['upload_date'] ?? '';
+          return uploadDate.startsWith(todayString);
+        }).length;
 
-      setState(() {
-        _todayCount = count;
-        _isLoading = false;
-      });
+        setState(() {
+          _todayCount = count;
+          _isServerOnline = true; // 연결 성공 -> 온라인
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isServerOnline = false; // 에러 코드 -> 오프라인
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      print("Error fetching logs: $e");
+      print("서버 연결 실패: $e");
       setState(() {
+        _isServerOnline = false; // 예외 발생(타임아웃 등) -> 오프라인
         _isLoading = false;
       });
     }
@@ -108,10 +109,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.refresh, color: Colors.black),
-            onPressed: () {
-              setState(() { _isLoading = true; });
-              _fetchTodayAbnormalCount();
-            },
+            onPressed: _fetchTodayAbnormalCount,
           )
         ],
       ),
@@ -120,9 +118,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 40), // 상단 여백
-
-            // SAFESTORE AI 로고 (볼드 처리 및 왼쪽 상단 배치)
+            SizedBox(height: 40),
             Row(
               children: [
                 Text(
@@ -145,12 +141,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-
             SizedBox(height: 60),
 
             // 오늘 발생한 이상행동 카드
             GestureDetector(
               onTap: () {
+                // 클릭 시 '오늘의 기록'만 보여주는 리스트 화면으로 이동
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -186,7 +182,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
+                        // 우측 상단 아이콘 삭제됨
                       ],
                     ),
                     SizedBox(height: 20),
@@ -232,9 +228,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            Spacer(), // 하단 밀어내기
+            Spacer(),
 
-            // 시스템 상태창
             Text(
               "시스템 상태",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800]),
@@ -248,18 +243,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               child: Column(
                 children: [
+                  // AI 분석 엔진 삭제됨
+                  // 서버 연결 상태 표시 (색상 및 텍스트 자동 변경)
                   ListTile(
-                    leading: Icon(Icons.check_circle, color: Colors.green),
-                    title: Text("AI 분석 엔진", style: TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text("정상 작동 중"),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                  ),
-                  Divider(),
-                  ListTile(
-                    leading: Icon(Icons.wifi, color: Colors.green),
+                    leading: Icon(
+                        Icons.wifi,
+                        color: _isServerOnline ? Colors.green : Colors.red // 연결 상태에 따라 색상 변경
+                    ),
                     title: Text("서버 연결", style: TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text("온라인"),
+                    subtitle: Text(_isServerOnline ? "온라인" : "오프라인"), // 텍스트 변경
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                   ),
