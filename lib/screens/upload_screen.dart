@@ -51,7 +51,7 @@ class _UploadScreenState extends State<UploadScreen> {
     setState(() { _isUploading = true; });
 
     try {
-      // [주의] Ngrok 주소가 바뀌면 여기를 꼭 수정하세요!
+      // [주의] Ngrok 주소 확인 필수!
       var uri = Uri.parse('https://becomingly-vowless-peggy.ngrok-free.dev/upload');
 
       var request = http.MultipartRequest('POST', uri);
@@ -64,11 +64,10 @@ class _UploadScreenState extends State<UploadScreen> {
         var jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
         List<dynamic> logsJson = jsonResponse['data'];
 
-        // [수정된 부분] AbnormalLog 생성 시 type 필드 추가
         List<AbnormalLog> analysisResults = logsJson.map((json) => AbnormalLog(
           timestamp: json['timestamp'] ?? '',
           videoUrl: json['videoUrl'] ?? '',
-          type: json['type'] ?? '알 수 없음', // <-- 여기를 추가해서 에러 해결!
+          type: json['type'] ?? '알 수 없음',
         )).toList();
 
         if (mounted) {

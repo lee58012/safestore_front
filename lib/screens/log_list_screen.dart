@@ -40,7 +40,6 @@ class _LogListScreenState extends State<LogListScreen> {
           return AbnormalLog(
             timestamp: "${json['upload_date']} (${json['timestamp']})",
             videoUrl: fullVideoUrl,
-            // [수정] 서버의 'type' 값을 가져옴 (없으면 기본값)
             type: json['type'] ?? '알 수 없음',
           );
         }).toList();
@@ -130,7 +129,6 @@ class _LogListScreenState extends State<LogListScreen> {
                 backgroundColor: statusColor.withOpacity(0.1),
                 child: Icon(statusIcon, color: statusColor),
               ),
-              // [수정된 부분] 제목에 이상행동 타입 표시
               title: Text(
                 '이상행동 감지 ${log.type}',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),

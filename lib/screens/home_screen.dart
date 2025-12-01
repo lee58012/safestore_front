@@ -182,7 +182,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        // 우측 상단 아이콘 삭제됨
                       ],
                     ),
                     SizedBox(height: 20),
@@ -243,7 +242,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               child: Column(
                 children: [
-                  // AI 분석 엔진 삭제됨
                   // 서버 연결 상태 표시 (색상 및 텍스트 자동 변경)
                   ListTile(
                     leading: Icon(
